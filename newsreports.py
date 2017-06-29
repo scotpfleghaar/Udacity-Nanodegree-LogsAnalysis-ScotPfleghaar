@@ -2,18 +2,6 @@
 import psycopg2
 
 
-#  This was a block of code I found to help make sure that
-#  code was connecting to the database. This really helped
-#  when first starting the program.
-def testConnection(dbname="news"):
-    """Testing the Connect  database."""
-    try:
-        db = psycopg2.testConnection("dbname={}".format(dbname))
-        cursor = db.cursor()
-        return db, cursor
-    except:
-        print ("ERROR: Problem In Code, Cannot Connect Database")
-
 #  What are the most popular three articles of all time?
 mostPopularArticles = ("What are the most popular three articles of all time?")
 firstQuery = (
@@ -24,7 +12,7 @@ firstQuery = (
     "WHERE  log.path = Concat('/article/', articles.slug) "
     "GROUP  BY articles.title "
     "ORDER  BY articleviews DESC "
-    "LIMIT  3; ")  #  Change number if you would like more popular articles
+    "LIMIT  3; ")  # Change number if you would like more popular articles
 
 
 #  Who are the most popular article authors of all time?
@@ -38,8 +26,7 @@ secondQuery = (
     "       log "
     "WHERE  log.path = Concat('/article/', articles.slug) "
     "GROUP  BY authors.name "
-    "ORDER  BY articleviews DESC "
-    "LIMIT  3 ")  #  Change number if you would like more popular authors 
+    "ORDER  BY articleviews DESC ")
 
 
 #  On which days did more than 1% of requests lead to errors?
@@ -47,27 +34,17 @@ httpErrors = ("On which days did more than 1% of requests lead to errors?")
 #  This query looks at the total http requests at the log time, than divides
 #  by the amount of 404 errors that occured at the log time.
 #  Next, it displays that percentage with date when equal or greater than 1%
-#  If this query could be indexed, it would be much faster right now it takes about
-#  70 seconds on my system
 thirdQuery = (
     "SELECT date, "
-    "       percent "
-    "FROM   (SELECT date, "
-    "               Round(( Sum(totalrequests) / (SELECT Count(*) "
-    "                                             FROM   log "
-    "                                             WHERE  Substring(Cast( "
-    "                                                    log.time AS TEXT), 0 "
-    "                                                    , 11) = "
-    "                                                    date) "
-    "                            * 100 ), 2) AS percent "
-    "        FROM   (SELECT Substring(Cast(log.time AS TEXT), 0, 11) AS date, "
-    "                       Count(*)                         AS totalrequests "
-    "                FROM   log "
-    "                WHERE  status LIKE '404 NOT FOUND' "
-    "                GROUP  BY date) AS percentage "
-    "         GROUP  BY date "
-    "         ORDER  BY percent DESC) AS foo "
-    "WHERE  percent >= 1;")
+    "       Round(100.0 * totalerrors / totalrequests, 2) AS percent "
+    "FROM   (SELECT time::date AS date, "
+    "               Count(*) AS totalrequests, "
+    "              sum(case when status = '404 NOT FOUND' then 1 else 0 end) "
+    "                 as totalerrors "
+    "        FROM   log "
+    "               GROUP  BY date) AS foo "
+    "WHERE  Round(100.0 * totalerrors / totalrequests, 2) >= 1 "
+    "ORDER BY percent DESC; ")
 
 
 def getResults(query):
@@ -82,6 +59,7 @@ def getResults(query):
     i = curser.fetchall()
     db.close()
     return i
+
 
 
 def printResults(queryResults):
